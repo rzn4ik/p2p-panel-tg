@@ -54,7 +54,7 @@ h2{font-size:11px;margin:0 0 10px 0;color:var(--text-dim);text-transform:upperca
 // Адрес твоего сервера на Cloudflare
 const API_URL = 'https://fragrant-art-d8ae.rzn4ik.workers.dev';
 
-let tg = window.Telegram.WebApp;
+let tg = window.Telegram?.WebApp || { initData: '', expand: () => {}, ready: () => {} };
 let currentUser = null;
 let payouts = [];
 let currentTab = 'available';
