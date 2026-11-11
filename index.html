@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Панель заявок</title>
-<!-- ПОДКЛЮЧАЕМ СКРИПТ TELEGRAM -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{--bg:#0d0d15;--bg-card:#1a1a2a;--bg-inner:#0d0d15;--text:#fff;--text-dim:#888;--border:#2a2a3a;--accent:#a855f7;--accent-2:#10b981;--danger:#ef4444;--warning:#f59e0b;--heart:#ff4d6d;--info:#0ea5e9}
@@ -17,7 +16,6 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 .badge.client{background:var(--heart);color:#fff}
 .me{font-size:11px;color:var(--text-dim);margin-bottom:15px}
 .section{background:var(--bg-card);border-radius:10px;padding:14px;margin-bottom:12px;border:1px solid var(--border)}
-h2{font-size:11px;margin:0 0 10px 0;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;font-weight:600}
 .tabs{display:flex;gap:4px;margin-bottom:12px}
 .tabs button{flex:1;padding:9px;border:none;border-radius:6px;background:var(--bg-card);color:var(--text-dim);font-weight:bold;cursor:pointer;font-size:12px;}
 .tabs button.active{background:var(--accent);color:#fff;}
@@ -33,156 +31,157 @@ h2{font-size:11px;margin:0 0 10px 0;color:var(--text-dim);text-transform:upperca
 .card-actions button.green{background:var(--accent-2)}
 .loading{text-align:center;padding:25px;color:var(--text-dim)}
 .toast{position:fixed;top:15px;left:50%;transform:translateX(-50%);background:var(--accent-2);color:#fff;padding:10px 18px;border-radius:8px;font-weight:bold;z-index:9999;font-size:13px;}
+#jsError{display:none; background:#ef4444; color:#fff; padding:10px; margin-bottom:10px; border-radius:8px; font-size:12px; word-wrap:break-word;}
 </style>
 </head>
 <body>
 
-<!-- Вывод ошибок на экран -->
-<div id="jsError" style="display:none; background:#ef4444; color:#fff; padding:10px; margin-bottom:10px; border-radius:8px; font-size:12px;"></div>
+<div id="jsError"></div>
 
-<h1>📊 Панель заявок <span id="userBadge" class="badge">Загрузка...</span></h1>
-<div class="me" id="userInfo">Подключение к Telegram...</div>
+<h1>📊 Панель заявок <span id="userBadge" class="badge">...</span></h1>
+<div class="me" id="userInfo">Инициализация...</div>
 
 <div class="tabs">
   <button id="tabAvailable" class="active" onclick="setTab('available')">🟣 Доступные</button>
   <button id="tabActive" onclick="setTab('active')">🔥 В работе</button>
 </div>
 
-<div id="content" class="loading">Загрузка заявок...</div>
+<div id="content" class="loading">Загрузка данных...</div>
 
 <script>
-// Адрес твоего сервера на Cloudflare
-const API_URL = 'https://fragrant-art-d8ae.rzn4ik.workers.dev';
+  // Перехватываем все ошибки, чтобы показать их на экране
+window.onerror = function(msg, url, line) {
+  const el = document.getElementById('jsError');
+  el.style.display = 'block';
+  el.innerText = 'ОШИБКА: ' + msg + ' (строка ' + line + ')';
+  return false;
+};
 
-let tg = window.Telegram?.WebApp || { initData: '', expand: () => {}, ready: () => {} };
+const API_URL = 'https://fragrant-art-d8ae.rzn4ik.workers.dev';
+let tg = null;
 let currentUser = null;
 let payouts = [];
 let currentTab = 'available';
 
-// Инициализация Telegram
-tg.expand(); // Разворачиваем на весь экран
-tg.ready();
-
-function showError(msg) {
-  const el = document.getElementById('jsError');
-  el.style.display = 'block';
-  el.innerText = 'Ошибка: ' + msg;
-}
-
-function showToast(msg) {
-  const el = document.createElement('div');
-  el.className = 'toast';
-  el.innerText = msg;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
-}
-
-// 1. АВТОРИЗАЦИЯ
-async function initApp() {
-  try {
-    // Если открыто не в Telegram, для теста используем заглушку
-    if (!tg.initData) {
-      console.warn('Открыто вне Telegram. Используем тестового юзера.');
-      currentUser = { telegram_id: '123456789', username: 'test_user', role: 'worker' };
-      updateUI();
-      fetchPayouts();
-      return;
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.Telegram && window.Telegram.WebApp) {
+        tg = window.Telegram.WebApp;
+        try { tg.expand(); tg.ready(); } catch(e) { console.log('TG Error:', e); }
+    } else {
+        console.warn('Открыто вне Telegram. Используем заглушку.');
+        document.getElementById('userInfo').innerText = 'Режим браузера (тест)';
     }
+    initApp();
+});
 
-    // Отправляем данные Telegram на наш сервер для проверки
-    const res = await fetch(`${API_URL}/api/auth`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData: tg.initData })
-    });
-    
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+async function initApp() {
+    try {
+        let initData = tg ? tg.initData : '';
+        
+        if (!initData) {
+            currentUser = { telegram_id: '858699626', username: 'admin', role: 'admin', markup: 0 };
+            updateUI();
+            await fetchPayouts();
+            return;
+        }
 
-    currentUser = data.user;
-    updateUI();
-    fetchPayouts();
+        document.getElementById('userInfo').innerText = 'Авторизация...';
+        const res = await fetch(`${API_URL}/api/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: initData })
+        });
+        
+        if (!res.ok) throw new Error('Сервер вернул ошибку ' + res.status);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
 
-  } catch (e) {
-    showError(e.message);
-    document.getElementById('content').innerHTML = '<div class="loading">Ошибка авторизации. Попробуйте перезайти.</div>';
-  }
+        currentUser = data.user;
+        updateUI();
+        await fetchPayouts();
+
+    } catch (e) {
+        showError('Авторизация: ' + e.message);
+        document.getElementById('content').innerHTML = '<div class="loading" style="color:red">Ошибка авторизации</div>';
+    }
 }
 
-// Обновляем шапку профиля
 function updateUI() {
-  if (!currentUser) return;
-  const badge = document.getElementById('userBadge');
-  const info = document.getElementById('userInfo');
-  
-  badge.textContent = `@${currentUser.username} (${currentUser.role})`;
-  badge.className = 'badge ' + currentUser.role;
-  info.textContent = `ID: ${currentUser.telegram_id} • Наценка: ${currentUser.markup || 0}%`;
+    if (!currentUser) return;
+    const badge = document.getElementById('userBadge');
+    const info = document.getElementById('userInfo');
+    badge.textContent = `@${currentUser.username} (${currentUser.role})`;
+    badge.className = 'badge ' + currentUser.role;
+    info.textContent = `ID: ${currentUser.telegram_id} • Наценка: ${currentUser.markup || 0}%`;
 }
 
-// 2. ПОЛУЧЕНИЕ ЗАЯВОК
 async function fetchPayouts() {
-  try {
-    const res = await fetch(`${API_URL}/api/payouts`);
-    const data = await res.json();
-    payouts = data;
-    render();
-  } catch (e) {
-    showError('Не удалось загрузить заявки: ' + e.message);
-  }
+    try {
+        const res = await fetch(`${API_URL}/api/payouts`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        payouts = data;
+        render();
+    } catch (e) {
+        showError('Загрузка заявок: ' + e.message);
+        document.getElementById('content').innerHTML = '<div class="loading" style="color:red">Не удалось загрузить заявки</div>';
+    }
 }
 
-// 3. ОТРИСОВКА ИНТЕРФЕЙСА
 function setTab(tab) {
-  currentTab = tab;
-  document.getElementById('tabAvailable').classList.remove('active');
-  document.getElementById('tabActive').classList.remove('active');
-  document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
-  render();
+    currentTab = tab;
+    document.getElementById('tabAvailable').classList.remove('active');
+    document.getElementById('tabActive').classList.remove('active');
+    document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+    render();
 }
 
 function render() {
-  const container = document.getElementById('content');
-  
-  // Фильтруем заявки по вкладкам (пока просто для примера)
-  let list = [];
-  if (currentTab === 'available') list = payouts.filter(p => p.status === 'available');
-  if (currentTab === 'active') list = payouts.filter(p => p.status === 'active');
+    const container = document.getElementById('content');
+    let list = currentTab === 'available' 
+        ? payouts.filter(p => p.status === 'available') 
+        : payouts.filter(p => p.status === 'active');
 
-  if (list.length === 0) {
-    container.innerHTML = '<div class="loading">Нет заявок в этом разделе</div>';
-    return;
-  }
+    if (list.length === 0) {
+        container.innerHTML = '<div class="loading">Нет заявок в этом разделе</div>';
+        return;
+    }
 
-  container.innerHTML = list.map(p => `
-    <div class="card ${p.status}">
-      <div class="card-header">
-        <span>${Math.round(p.amount)} ₽</span>
-        <span style="font-size:12px; color:var(--warning)">Курс: ${p.rate}</span>
-      </div>
-      <div class="card-row">💳 Карта: <b>${p.card_number || '—'}</b></div>
-      <div class="card-row">📱 Телефон: <b>${p.phone || '—'}</b></div>
-      <div class="card-row">🏦 Банк: <b>${p.bank}</b></div>
-      
-      <div class="card-actions">
-        ${p.status === 'available' ? `<button class="green" onclick="takePayout(${p.id})">❤️ Взять в работу</button>` : ''}
-        ${p.status === 'active' ? `<button>✅ Завершить</button>` : ''}
-      </div>
-    </div>
-  `).join('');
+    container.innerHTML = list.map(p => `
+        <div class="card ${p.status}">
+            <div class="card-header">
+                <span>${Math.round(p.amount || p.totalSum || 0)} ₽</span>
+                <span style="font-size:12px; color:var(--warning)">Курс: ${p.rate || 0}</span>
+            </div>
+            <div class="card-row">💳 Карта: <b>${p.card_number || p.cardNumber || '—'}</b></div>
+            <div class="card-row">📱 Телефон: <b>${p.phone || '—'}</b></div>
+            <div class="card-row">🏦 Банк: <b>${p.bank || '—'}</b></div>
+            <div class="card-actions">
+                ${p.status === 'available' ? `<button class="green" onclick="takePayout(${p.id})">❤️ Взять в работу</button>` : ''}
+                ${p.status === 'active' ? `<button>✅ Завершить</button>` : ''}
+            </div>
+        </div>
+    `).join('');
 }
 
-// 4. ДЕЙСТВИЯ
+function showError(msg) {
+    const el = document.getElementById('jsError');
+    el.style.display = 'block';
+    el.innerText = 'Ошибка: ' + msg;
+}
+
 async function takePayout(id) {
-  // В будущем здесь будет запрос к серверу, чтобы закрепить заявку за тобой
-  showToast('Взято в работу (тест)');
-  // Пока просто меняем статус локально для проверки визуала
-  const p = payouts.find(x => x.id === id);
-  if(p) {
-    p.status = 'active';
-    render();
-  }
+    showToast('Взято в работу (тест)');
 }
 
-// ЗАПУСК
-initApp();
+function showToast(msg) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.innerText = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+}
+
+</script>
+</body>
+</html>
