@@ -45,6 +45,9 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 .timer { font-size: 13px; color: var(--warning); font-weight: bold; margin-top: 5px;}
 .timer.expired { color: var(--danger); }
 .worker-badge { font-size: 10px; background: var(--info); color: #fff; padding: 2px 6px; border-radius: 4px; margin-left: 5px; }
+.shift-rate-box { display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--warning); }
+.shift-rate-box input { width: 80px; padding: 5px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: #fff; text-align: center; font-weight: bold;}
+.shift-rate-box button { padding: 5px 10px; border-radius: 4px; background: var(--warning); color: #fff; border: none; cursor: pointer; font-weight: bold;}
 </style>
 </head>
 <body>
@@ -64,7 +67,14 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
         <option value="Евгений">Евгений</option>
         <option value="Артем">Артем</option>
     </select>
+    <input type="number" id="startShiftRate" placeholder="Введите курс Рапиры" step="0.01" required>
     <button onclick="startShift()">Подтвердить</button>
+</div>
+
+<div id="shiftRateBox" class="shift-rate-box" style="display:none;">
+    <span>Курс смены:</span>
+    <input type="number" id="shiftRateInput" step="0.01">
+    <button onclick="saveShiftRate()">Сохранить</button>
 </div>
 
 <button id="createBtn" class="create-btn" onclick="toggleForm()">+ Создать заявку</button>
@@ -135,45 +145,11 @@ async function initApp() {
         updateUI();
         await checkShift();
         await fetchData();
-        startRateParser(); // Запускаем парсер
 
     } catch (e) {
         showError('Авторизация: ' + e.message);
         document.getElementById('content').innerHTML = '<div class="loading" style="color:red">Ошибка авторизации</div>';
     }
-}
-
-// ПАРСЕР КУРСА (через браузер, напрямую с Рапиры)
-async function startRateParser() {
-    const updateRate = async () => {
-        try {
-            // Идем на официальное API Рапиры (через браузер)
-            const res = await fetch("https://api.rapira.net/open/market/rates", {
-                headers: { "Accept": "application/json" }
-            });
-            
-            if (res.ok) {
-                const data = await res.json();
-                // Ищем USDT/RUB
-                const pair = data.find(item => item.symbol === "USDT/RUB");
-                if (pair && pair.askPrice) {
-                    const rate = parseFloat(pair.askPrice);
-                    // Отправляем на сервер
-                    await fetch(`${API_URL}/api/rate/save`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ rate })
-                    });
-                    console.log('Курс Рапиры сохранен:', rate);
-                }
-            }
-        } catch(e) {
-            console.log('Ошибка парсера (браузер):', e.message);
-        }
-    };
-
-    updateRate();
-    setInterval(updateRate, 60000); // Раз в минуту
 }
 
 async function checkShift() {
@@ -187,12 +163,17 @@ async function checkShift() {
 
 function updateShiftUI() {
     const shiftBtn = document.getElementById('shiftBtn');
+    const rateBox = document.getElementById('shiftRateBox');
+    
     if (currentShift) {
         shiftBtn.innerText = `Закончить смену (${currentShift.worker_name})`;
         shiftBtn.style.background = 'var(--danger)';
+        document.getElementById('shiftRateInput').value = currentShift.shift_rate;
+        rateBox.style.display = 'flex';
     } else {
         shiftBtn.innerText = 'Начать смену';
         shiftBtn.style.background = 'var(--accent)';
+        rateBox.style.display = 'none';
     }
 }
 
@@ -206,15 +187,18 @@ function toggleShift() {
 
 async function startShift() {
     const worker = document.getElementById('workerSelect').value;
+    const rate = document.getElementById('startShiftRate').value;
+    
     if (!worker) { showToast('Выберите имя!'); return; }
+    if (!rate) { showToast('Введите курс Рапиры!'); return; }
     
     const res = await fetch(`${API_URL}/api/shift/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ worker_name: worker })
+        body: JSON.stringify({ worker_name: worker, shift_rate: rate })
     });
     if (res.ok) {
-        showToast('Смена начата!');
+        showToast('Смена начата! Курс зафиксирован.');
         document.getElementById('shiftForm').style.display = 'none';
         await checkShift();
     }
@@ -224,6 +208,21 @@ async function endShift() {
     const res = await fetch(`${API_URL}/api/shift/end`, { method: 'POST' });
     if (res.ok) {
         showToast('Смена завершена!');
+        await checkShift();
+    }
+}
+
+async function saveShiftRate() {
+    const newRate = document.getElementById('shiftRateInput').value;
+    if (!newRate) return;
+    
+    const res = await fetch(`${API_URL}/api/shift/rate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rate: newRate })
+    });
+    if (res.ok) {
+        showToast('Курс смены обновлен!');
         await checkShift();
     }
 }
@@ -253,21 +252,12 @@ async function toggleForm() {
     
     if (form.style.display === 'block') {
         const rateInput = document.getElementById('rate');
-        rateInput.value = 'Загрузка...';
-        rateInput.style.color = '#888';
-        
-        try {
-            const res = await fetch(`${API_URL}/api/rate`);
-            const data = await res.json();
-            if (data.rate) {
-                rateInput.value = data.rate;
-                rateInput.style.color = '#fff';
-            } else {
-                rateInput.value = 'Ошибка (нет rate)';
-                rateInput.style.color = 'red';
-            }
-        } catch(e) {
-            rateInput.value = 'Ошибка сети';
+        // Если смена активна, берем курс из смены
+        if (currentShift) {
+            rateInput.value = currentShift.shift_rate;
+            rateInput.style.color = '#fff';
+        } else {
+            rateInput.value = 'Ошибка (смена не начата)';
             rateInput.style.color = 'red';
         }
     }
@@ -282,8 +272,8 @@ async function submitPayout() {
     const card = document.getElementById('card').value;
     const phone = document.getElementById('phone').value;
 
-    if (!amount || !rate || rate.includes('Ошибка') || rate === 'Загрузка...' || !bank || !checks || !timer_min) { 
-        showToast('Заполните поля или дождитесь курса!'); 
+    if (!amount || !rate || rate.includes('Ошибка') || !bank || !checks || !timer_min) { 
+        showToast('Заполните поля!'); 
         return; 
     }
 
