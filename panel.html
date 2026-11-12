@@ -27,6 +27,7 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 .card-actions{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
 .card-actions button{padding:8px 12px;border:none;border-radius:5px;background:var(--accent);color:#fff;font-size:12px;cursor:pointer;font-weight:600}
 .card-actions button.green{background:var(--accent-2)}
+.card-actions button.red{background:var(--danger)}
 .loading{text-align:center;padding:25px;color:var(--text-dim)}
 .toast{position:fixed;top:15px;left:50%;transform:translateX(-50%);background:var(--accent-2);color:#fff;padding:10px 18px;border-radius:8px;font-weight:bold;z-index:9999;font-size:13px;}
 #jsError{display:none; background:#ef4444; color:#fff; padding:10px; margin-bottom:10px; border-radius:8px; font-size:12px; word-wrap:break-word;}
@@ -37,11 +38,13 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 .client-markup input { width: 60px; padding: 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); color: #fff; text-align: center;}
 .client-markup button { padding: 6px 10px; border-radius: 4px; background: var(--accent-2); color: #fff; border: none; cursor: pointer; font-weight: bold;}
 .create-btn{width:100%;padding:10px;background:var(--accent-2);color:#fff;border:none;border-radius:8px;font-weight:bold;margin-bottom:15px;cursor:pointer;display:none;font-size:14px;}
+.shift-btn{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:bold;margin-bottom:15px;cursor:pointer;display:none;font-size:14px;}
 .form-box{background:var(--bg-card);padding:15px;border-radius:10px;margin-bottom:15px;border:1px solid var(--border);display:none;}
-.form-box input{width:100%;padding:10px;margin-bottom:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:#fff;font-size:14px;}
+.form-box input, .form-box select{width:100%;padding:10px;margin-bottom:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:#fff;font-size:14px;}
 .form-box button{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;margin-top:5px;}
 .timer { font-size: 13px; color: var(--warning); font-weight: bold; margin-top: 5px;}
 .timer.expired { color: var(--danger); }
+.worker-badge { font-size: 10px; background: var(--info); color: #fff; padding: 2px 6px; border-radius: 4px; margin-left: 5px; }
 </style>
 </head>
 <body>
@@ -50,6 +53,19 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 
 <h1>📊 Панель заявок <span id="userBadge" class="badge">...</span></h1>
 <div class="me" id="userInfo">Инициализация...</div>
+
+<button id="shiftBtn" class="shift-btn" onclick="toggleShift()">Начать смену</button>
+
+<div id="shiftForm" class="form-box">
+    <select id="workerSelect">
+        <option value="">Выберите воркера</option>
+        <option value="Денис">Денис</option>
+        <option value="Дмитрий">Дмитрий</option>
+        <option value="Евгений">Евгений</option>
+        <option value="Артем">Артем</option>
+    </select>
+    <button onclick="startShift()">Подтвердить</button>
+</div>
 
 <button id="createBtn" class="create-btn" onclick="toggleForm()">+ Создать заявку</button>
 
@@ -86,6 +102,7 @@ let currentTab = 'payouts';
 let clientsList = [];
 let payoutsList = [];
 let timerInterval = null;
+let currentShift = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     if (window.Telegram && window.Telegram.WebApp) {
@@ -116,11 +133,62 @@ async function initApp() {
 
         currentUser = data.user;
         updateUI();
+        await checkShift();
         await fetchData();
 
     } catch (e) {
         showError('Авторизация: ' + e.message);
         document.getElementById('content').innerHTML = '<div class="loading" style="color:red">Ошибка авторизации</div>';
+    }
+}
+
+async function checkShift() {
+    const res = await fetch(`${API_URL}/api/shift/current`);
+    const data = await res.json();
+    currentShift = data.shift;
+    updateShiftUI();
+}
+
+function updateShiftUI() {
+    const shiftBtn = document.getElementById('shiftBtn');
+    if (currentShift) {
+        shiftBtn.innerText = `Закончить смену (${currentShift.worker_name})`;
+        shiftBtn.style.background = 'var(--danger)';
+    } else {
+        shiftBtn.innerText = 'Начать смену';
+        shiftBtn.style.background = 'var(--accent)';
+    }
+}
+
+function toggleShift() {
+    if (currentShift) {
+        endShift();
+    } else {
+        document.getElementById('shiftForm').style.display = 'block';
+    }
+}
+
+async function startShift() {
+    const worker = document.getElementById('workerSelect').value;
+    if (!worker) { showToast('Выберите имя!'); return; }
+    
+    const res = await fetch(`${API_URL}/api/shift/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ worker_name: worker })
+    });
+    if (res.ok) {
+        showToast('Смена начата!');
+        document.getElementById('shiftForm').style.display = 'none';
+        await checkShift();
+    }
+}
+
+async function endShift() {
+    const res = await fetch(`${API_URL}/api/shift/end`, { method: 'POST' });
+    if (res.ok) {
+        showToast('Смена завершена!');
+        await checkShift();
     }
 }
 
@@ -137,6 +205,7 @@ function updateUI() {
         info.textContent = `ID: ${currentUser.telegram_id} • Наценка: ${currentUser.markup || 0}%`;
         document.getElementById('tabClients').style.display = 'block';
         document.getElementById('createBtn').style.display = 'block';
+        document.getElementById('shiftBtn').style.display = 'block';
     } else {
         info.textContent = `ID: ${currentUser.telegram_id}`;
     }
@@ -164,7 +233,6 @@ async function toggleForm() {
         } catch(e) {
             rateInput.value = 'Ошибка сети';
             rateInput.style.color = 'red';
-            showError('Курс: ' + e.message);
         }
     }
 }
@@ -189,9 +257,14 @@ async function submitPayout() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ amount, rate, bank, card, phone, checks, timer_min })
         });
-        if (!res.ok) throw new Error('Ошибка сервера');
+        const data = await res.json();
         
-        showToast('Заявка создана!');
+        if (data.isDuplicate) {
+            showToast('⚠️ ВНИМАНИЕ: Дубликат реквизитов за смену!');
+        } else {
+            showToast('Заявка создана!');
+        }
+        
         toggleForm();
         await fetchData();
     } catch(e) {
@@ -286,6 +359,7 @@ function renderPayouts() {
     if (payoutsList.length === 0) { container.innerHTML = '<div class="loading">Нет заявок</div>'; return; }
 
     let markup = currentUser ? (parseFloat(currentUser.markup) || 0) : 0;
+    const isStaff = currentUser.role === 'admin' || currentUser.role === 'worker';
 
     container.innerHTML = payoutsList.map(p => {
         const baseRate = parseFloat(p.rate) || 0;
@@ -298,15 +372,20 @@ function renderPayouts() {
         orderHtml += `<div class="card-row">💰 Сумма: <b>${Math.round(p.amount)} ₽</b></div>`;
         orderHtml += `<div class="card-row">📄 Чеков: <b>${p.checks || 1}</b></div>`;
 
+        let workerHtml = '';
+        if (p.worker_name) workerHtml = `<span class="worker-badge">Воркер: ${p.worker_name}</span>`;
+
         return `
         <div class="card ${p.status}">
             <div class="card-header">
-                <span>Курс: <span style="color:var(--warning)">${finalRate}</span></span>
+                <span>Курс: <span style="color:var(--warning)">${finalRate}</span> ${workerHtml}</span>
             </div>
             ${orderHtml}
             <div class="timer" data-created="${p.created_at}Z" data-duration="${p.timer_min || 60}">⏳ Загрузка...</div>
             <div class="card-actions">
                 ${p.status === 'available' ? `<button class="green" onclick="takePayout(${p.id})">❤️ Взять в работу</button>` : ''}
+                ${isStaff ? `<button onclick="editPayout(${p.id})">✏️ Ред.</button>` : ''}
+                ${isStaff ? `<button class="red" onclick="deletePayout(${p.id})">🗑 Удалить</button>` : ''}
             </div>
         </div>
     `}).join('');
@@ -319,6 +398,23 @@ function renderPayouts() {
 
 async function takePayout(id) {
     showToast('Взято в работу (тест)');
+}
+
+async function deletePayout(id) {
+    if (!confirm('Удалить заявку?')) return;
+    try {
+        await fetch(`${API_URL}/api/payouts/delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        showToast('Удалено');
+        await fetchData();
+    } catch(e) { showError('Удаление: ' + e.message); }
+}
+
+async function editPayout(id) {
+    showToast('Редактирование пока в разработке (следующий шаг)');
 }
 
 function showError(msg) {
