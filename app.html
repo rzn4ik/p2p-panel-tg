@@ -235,7 +235,6 @@ async function saveMarkup(tgId) {
             body: JSON.stringify({ telegram_id: tgId, markup: val })
         });
         showToast('Наценка сохранена');
-        // Если мы изменили наценку текущему пользователю — пересчитываем и обновляем
         if (currentUser && currentUser.telegram_id === tgId) {
             currentUser.markup = parseFloat(val);
             renderPayouts();
@@ -267,27 +266,26 @@ function renderPayouts() {
     const container = document.getElementById('content');
     if (payoutsList.length === 0) { container.innerHTML = '<div class="loading">Нет заявок</div>'; return; }
 
-    // Рассчитываем наценку строго из данных текущего пользователя
     let markup = currentUser ? (parseFloat(currentUser.markup) || 0) : 0;
 
     container.innerHTML = payoutsList.map(p => {
         const baseRate = parseFloat(p.rate) || 0;
         const finalRate = (baseRate + (baseRate * markup / 100)).toFixed(2);
         
-        // Строгий порядок строк
-        let contacts = '';
-        if (p.phone) contacts += `<div class="card-row">📱 Телефон: <b>${p.phone}</b></div>`;
-        if (p.card_number) contacts += `<div class="card-row">💳 Карта: <b>${p.card_number}</b></div>`;
-        contacts += `<div class="card-row">🏦 Банк: <b>${p.bank}</b></div>`;
+        // СТРОГИЙ ПОРЯДОК КАК ТЫ ПРОСИЛ
+        let orderHtml = '';
+        if (p.phone) orderHtml += `<div class="card-row">📱 Телефон: <b>${p.phone}</b></div>`;
+        if (p.card_number) orderHtml += `<div class="card-row">💳 Карта: <b>${p.card_number}</b></div>`;
+        orderHtml += `<div class="card-row">🏦 Банк: <b>${p.bank}</b></div>`;
+        orderHtml += `<div class="card-row">💰 Сумма: <b>${Math.round(p.amount)} ₽</b></div>`;
+        orderHtml += `<div class="card-row">📄 Чеков: <b>${p.checks || 1}</b></div>`;
 
         return `
         <div class="card ${p.status}">
             <div class="card-header">
-                <span>Сумма: ${Math.round(p.amount)} ₽</span>
-                <span style="font-size:12px; color:var(--warning)">Курс: ${finalRate}</span>
+                <span>Курс: <span style="color:var(--warning)">${finalRate}</span></span>
             </div>
-            ${contacts}
-            <div class="card-row">📄 Чеков: <b>${p.checks || 1}</b></div>
+            ${orderHtml}
             <div class="timer" data-created="${p.created_at}Z" data-duration="${p.timer_min || 60}">⏳ Загрузка...</div>
             <div class="card-actions">
                 ${p.status === 'available' ? `<button class="green" onclick="takePayout(${p.id})">❤️ Взять в работу</button>` : ''}
