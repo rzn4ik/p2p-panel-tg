@@ -135,11 +135,45 @@ async function initApp() {
         updateUI();
         await checkShift();
         await fetchData();
+        startRateParser(); // Запускаем парсер
 
     } catch (e) {
         showError('Авторизация: ' + e.message);
         document.getElementById('content').innerHTML = '<div class="loading" style="color:red">Ошибка авторизации</div>';
     }
+}
+
+// ПАРСЕР КУРСА (через браузер, напрямую с Рапиры)
+async function startRateParser() {
+    const updateRate = async () => {
+        try {
+            // Идем на официальное API Рапиры (через браузер)
+            const res = await fetch("https://api.rapira.net/open/market/rates", {
+                headers: { "Accept": "application/json" }
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                // Ищем USDT/RUB
+                const pair = data.find(item => item.symbol === "USDT/RUB");
+                if (pair && pair.askPrice) {
+                    const rate = parseFloat(pair.askPrice);
+                    // Отправляем на сервер
+                    await fetch(`${API_URL}/api/rate/save`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ rate })
+                    });
+                    console.log('Курс Рапиры сохранен:', rate);
+                }
+            }
+        } catch(e) {
+            console.log('Ошибка парсера (браузер):', e.message);
+        }
+    };
+
+    updateRate();
+    setInterval(updateRate, 60000); // Раз в минуту
 }
 
 async function checkShift() {
