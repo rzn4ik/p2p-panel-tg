@@ -11,12 +11,11 @@
 body{font-family:-apple-system,Arial,sans-serif;background:var(--bg);color:var(--text);padding:15px;min-height:100vh;}
 h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:600}
 .badge{font-size:10px;padding:3px 8px;border-radius:8px;background:var(--border);color:var(--text-dim);font-weight:500}
-.badge.admin{background:var(--accent);color:#fff}
-.badge.worker{background:var(--accent-2);color:#fff}
+.badge.admin, .badge.worker{background:var(--accent);color:#fff}
 .badge.client{background:var(--heart);color:#fff}
 .me{font-size:11px;color:var(--text-dim);margin-bottom:15px}
-.tabs{display:flex;gap:4px;margin-bottom:12px}
-.tabs button{flex:1;padding:9px;border:none;border-radius:6px;background:var(--bg-card);color:var(--text-dim);font-weight:bold;cursor:pointer;font-size:12px;}
+.tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;}
+.tabs button{flex:1;padding:9px;border:none;border-radius:6px;background:var(--bg-card);color:var(--text-dim);font-weight:bold;cursor:pointer;font-size:12px;white-space:nowrap;}
 .tabs button.active{background:var(--accent);color:#fff;}
 .card{background:var(--bg-card);border:1px solid var(--border);border-left:3px solid var(--text-dim);border-radius:8px;padding:12px;margin-bottom:8px;}
 .card.available{border-left-color:var(--accent)}
@@ -31,6 +30,16 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 .loading{text-align:center;padding:25px;color:var(--text-dim)}
 .toast{position:fixed;top:15px;left:50%;transform:translateX(-50%);background:var(--accent-2);color:#fff;padding:10px 18px;border-radius:8px;font-weight:bold;z-index:9999;font-size:13px;}
 #jsError{display:none; background:#ef4444; color:#fff; padding:10px; margin-bottom:10px; border-radius:8px; font-size:12px; word-wrap:break-word;}
+.client-row { display: flex; justify-content: space-between; align-items: center; background: var(--bg); padding: 10px; border-radius: 6px; margin-bottom: 8px; border: 1px solid var(--border); }
+.client-info { font-size: 13px; }
+.client-info span { font-size: 11px; color: var(--text-dim); }
+.client-markup { display: flex; align-items: center; gap: 5px; }
+.client-markup input { width: 60px; padding: 6px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); color: #fff; text-align: center;}
+.client-markup button { padding: 6px 10px; border-radius: 4px; background: var(--accent-2); color: #fff; border: none; cursor: pointer; font-weight: bold;}
+.create-btn{width:100%;padding:10px;background:var(--accent-2);color:#fff;border:none;border-radius:8px;font-weight:bold;margin-bottom:15px;cursor:pointer;display:none;font-size:14px;}
+.form-box{background:var(--bg-card);padding:15px;border-radius:10px;margin-bottom:15px;border:1px solid var(--border);display:none;}
+.form-box input{width:100%;padding:10px;margin-bottom:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:#fff;font-size:14px;}
+.form-box button{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -40,15 +49,25 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 <h1>📊 Панель заявок <span id="userBadge" class="badge">...</span></h1>
 <div class="me" id="userInfo">Инициализация...</div>
 
-<div class="tabs">
-  <button id="tabAvailable" class="active" onclick="setTab('available')">🟣 Доступные</button>
-  <button id="tabActive" onclick="setTab('active')">🔥 В работе</button>
+<button id="createBtn" class="create-btn" onclick="toggleForm()">+ Создать заявку</button>
+
+<div id="createForm" class="form-box">
+    <input type="number" id="amount" placeholder="Сумма (₽)" required>
+    <input type="number" id="rate" placeholder="Курс (автоматически)" readonly style="opacity:0.7">
+    <input type="text" id="bank" placeholder="Банк (например, Сбер)" required>
+    <input type="text" id="card" placeholder="Номер карты" required>
+    <input type="text" id="phone" placeholder="Телефон" required>
+    <button onclick="submitPayout()">Опубликовать</button>
+</div>
+
+<div class="tabs" id="tabsContainer">
+  <button id="tabPayouts" class="active" onclick="setTab('payouts')">📋 Заявки</button>
+  <button id="tabClients" onclick="setTab('clients')" style="display:none;">👥 Клиенты</button>
 </div>
 
 <div id="content" class="loading">Загрузка данных...</div>
 
 <script>
-  // Перехватываем все ошибки
 window.onerror = function(msg, url, line) {
   const el = document.getElementById('jsError');
   el.style.display = 'block';
@@ -59,16 +78,16 @@ window.onerror = function(msg, url, line) {
 const API_URL = 'https://fragrant-art-d8ae.rzn4ik.workers.dev';
 let tg = null;
 let currentUser = null;
-let payouts = [];
-let currentTab = 'available';
+let currentTab = 'payouts';
+let clientsList = [];
+let payoutsList = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     if (window.Telegram && window.Telegram.WebApp) {
         tg = window.Telegram.WebApp;
         try { tg.expand(); tg.ready(); } catch(e) { console.log('TG Error:', e); }
     } else {
-        showError('Открыто вне Telegram. Пожалуйста, откройте панель через бота.');
-        document.getElementById('userInfo').innerText = 'Ошибка';
+        showError('Открыто вне Telegram.');
         return;
     }
     initApp();
@@ -77,13 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function initApp() {
     try {
         let initData = tg ? tg.initData : '';
-        
-        // Убрали заглушку! Если данных нет - показываем ошибку.
-        if (!initData) {
-            showError('Telegram не передал данные (initData пустой). Попробуйте перезайти в бота.');
-            document.getElementById('userInfo').innerText = 'Ошибка авторизации';
-            return;
-        }
+        if (!initData) { showError('Нет данных от Telegram.'); return; }
 
         document.getElementById('userInfo').innerText = 'Авторизация...';
         const res = await fetch(`${API_URL}/api/auth`, {
@@ -98,7 +111,7 @@ async function initApp() {
 
         currentUser = data.user;
         updateUI();
-        await fetchPayouts();
+        await fetchData();
 
     } catch (e) {
         showError('Авторизация: ' + e.message);
@@ -112,50 +125,123 @@ function updateUI() {
     const info = document.getElementById('userInfo');
     badge.textContent = `@${currentUser.username} (${currentUser.role})`;
     badge.className = 'badge ' + currentUser.role;
-    info.textContent = `ID: ${currentUser.telegram_id} • Наценка: ${currentUser.markup || 0}%`;
+    
+    const isStaff = currentUser.role === 'admin' || currentUser.role === 'worker';
+
+    if (isStaff) {
+        info.textContent = `ID: ${currentUser.telegram_id} • Наценка: ${currentUser.markup || 0}%`;
+        document.getElementById('tabClients').style.display = 'block';
+        document.getElementById('createBtn').style.display = 'block';
+    } else {
+        info.textContent = `ID: ${currentUser.telegram_id}`;
+    }
 }
 
-async function fetchPayouts() {
+function toggleForm() {
+    const form = document.getElementById('createForm');
+    form.style.display = form.style.display === 'block' ? 'none' : 'block';
+    if (form.style.display === 'block') {
+        // Тут потом будет подтягиваться курс Рапиры
+        document.getElementById('rate').value = 90.5; 
+    }
+}
+
+async function submitPayout() {
+    const amount = document.getElementById('amount').value;
+    const rate = document.getElementById('rate').value;
+    const bank = document.getElementById('bank').value;
+    const card = document.getElementById('card').value;
+    const phone = document.getElementById('phone').value;
+
+    if (!amount || !rate || !bank || !card || !phone) { showToast('Заполните все поля!'); return; }
+
     try {
-        const res = await fetch(`${API_URL}/api/payouts`);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        payouts = data;
-        render();
-    } catch (e) {
-        showError('Загрузка заявок: ' + e.message);
-        document.getElementById('content').innerHTML = '<div class="loading" style="color:red">Не удалось загрузить заявки</div>';
+        const res = await fetch(`${API_URL}/api/payouts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount, rate, bank, card, phone })
+        });
+        if (!res.ok) throw new Error('Ошибка сервера');
+        
+        showToast('Заявка создана!');
+        toggleForm();
+        await fetchData();
+    } catch(e) {
+        showError('Создание: ' + e.message);
     }
 }
 
 function setTab(tab) {
     currentTab = tab;
-    document.getElementById('tabAvailable').classList.remove('active');
-    document.getElementById('tabActive').classList.remove('active');
+    document.getElementById('tabPayouts').classList.remove('active');
+    document.getElementById('tabClients').classList.remove('active');
     document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-    render();
+    
+    if (tab === 'clients') fetchClients();
+    else fetchData();
 }
 
-function render() {
+async function fetchData() {
+    try {
+        const res = await fetch(`${API_URL}/api/payouts`);
+        const data = await res.json();
+        payoutsList = data;
+        renderPayouts();
+    } catch (e) { showError('Загрузка заявок: ' + e.message); }
+}
+
+async function fetchClients() {
+    try {
+        const res = await fetch(`${API_URL}/api/clients`);
+        clientsList = await res.json();
+        renderClients();
+    } catch (e) { showError('Загрузка клиентов: ' + e.message); }
+}
+
+function renderClients() {
     const container = document.getElementById('content');
-    let list = currentTab === 'available' 
-        ? payouts.filter(p => p.status === 'available') 
-        : payouts.filter(p => p.status === 'active');
+    if (clientsList.length === 0) { container.innerHTML = '<div class="loading">Клиентов пока нет</div>'; return; }
 
-    if (list.length === 0) {
-        container.innerHTML = '<div class="loading">Нет заявок в этом разделе</div>';
-        return;
-    }
+    container.innerHTML = clientsList.map(c => `
+        <div class="client-row">
+            <div class="client-info">
+                <b>@${c.username}</b><br>
+                <span>ID: ${c.telegram_id} | ${c.role === 'client' ? 'Клиент' : c.role}</span>
+            </div>
+            <div class="client-markup">
+                <input type="number" id="markup_${c.telegram_id}" value="${c.markup || 0}" step="0.1">
+                <span>%</span>
+                <button onclick="saveMarkup('${c.telegram_id}')">OK</button>
+            </div>
+        </div>
+    `).join('');
+}
 
-    container.innerHTML = list.map(p => `
+async function saveMarkup(tgId) {
+    const val = document.getElementById(`markup_${tgId}`).value;
+    try {
+        await fetch(`${API_URL}/api/clients/markup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegram_id: tgId, markup: val })
+        });
+        showToast('Наценка сохранена');
+    } catch (e) { showError('Сохранение: ' + e.message); }
+}
+
+function renderPayouts() {
+    const container = document.getElementById('content');
+    if (payoutsList.length === 0) { container.innerHTML = '<div class="loading">Нет заявок</div>'; return; }
+
+    container.innerHTML = payoutsList.map(p => `
         <div class="card ${p.status}">
             <div class="card-header">
-                <span>${Math.round(p.amount || p.totalSum || 0)} ₽</span>
-                <span style="font-size:12px; color:var(--warning)">Курс: ${p.rate || 0}</span>
+                <span>${Math.round(p.amount)} ₽</span>
+                <span style="font-size:12px; color:var(--warning)">Курс: ${p.rate}</span>
             </div>
-            <div class="card-row">💳 Карта: <b>${p.card_number || p.cardNumber || '—'}</b></div>
+            <div class="card-row">💳 Карта: <b>${p.card_number || '—'}</b></div>
             <div class="card-row">📱 Телефон: <b>${p.phone || '—'}</b></div>
-            <div class="card-row">🏦 Банк: <b>${p.bank || '—'}</b></div>
+            <div class="card-row">🏦 Банк: <b>${p.bank}</b></div>
             <div class="card-actions">
                 ${p.status === 'available' ? `<button class="green" onclick="takePayout(${p.id})">❤️ Взять в работу</button>` : ''}
             </div>
@@ -163,14 +249,14 @@ function render() {
     `).join('');
 }
 
+async function takePayout(id) {
+    showToast('Взято в работу (тест)');
+}
+
 function showError(msg) {
     const el = document.getElementById('jsError');
     el.style.display = 'block';
     el.innerText = 'Ошибка: ' + msg;
-}
-
-async function takePayout(id) {
-    showToast('Взято в работу (тест)');
 }
 
 function showToast(msg) {
