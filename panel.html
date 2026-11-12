@@ -54,17 +54,13 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 <button id="createBtn" class="create-btn" onclick="toggleForm()">+ Создать заявку</button>
 
 <div id="createForm" class="form-box">
-    <!-- СТРОГИЙ ПОРЯДОК ПОЛЕЙ -->
     <input type="text" id="phone" placeholder="Номер телефона (необязательно)">
     <input type="text" id="card" placeholder="Номер карты (необязательно)">
     <input type="text" id="bank" placeholder="Банк (например, Сбер)" required>
     <input type="number" id="amount" placeholder="Сумма (₽)" required>
     <input type="number" id="checks" placeholder="Количество чеков (шт)" required>
     <input type="number" id="timer" placeholder="Таймер (минут)" required>
-    
-    <!-- Курс подтягивается автоматически -->
-    <input type="number" id="rate" placeholder="Курс" readonly style="opacity:0.7; background: #0d0d15; cursor:not-allowed;">
-    
+    <input type="text" id="rate" placeholder="Курс" readonly style="opacity:0.7; background: #0d0d15; cursor:not-allowed;">
     <button onclick="submitPayout()">Опубликовать</button>
 </div>
 
@@ -146,11 +142,30 @@ function updateUI() {
     }
 }
 
-function toggleForm() {
+async function toggleForm() {
     const form = document.getElementById('createForm');
     form.style.display = form.style.display === 'block' ? 'none' : 'block';
+    
     if (form.style.display === 'block') {
-        document.getElementById('rate').value = 90.5;
+        const rateInput = document.getElementById('rate');
+        rateInput.value = 'Загрузка...';
+        rateInput.style.color = '#888';
+        
+        try {
+            const res = await fetch(`${API_URL}/api/rate`);
+            const data = await res.json();
+            if (data.rate) {
+                rateInput.value = data.rate;
+                rateInput.style.color = '#fff';
+            } else {
+                rateInput.value = 'Ошибка (нет rate)';
+                rateInput.style.color = 'red';
+            }
+        } catch(e) {
+            rateInput.value = 'Ошибка сети';
+            rateInput.style.color = 'red';
+            showError('Курс: ' + e.message);
+        }
     }
 }
 
@@ -163,8 +178,8 @@ async function submitPayout() {
     const card = document.getElementById('card').value;
     const phone = document.getElementById('phone').value;
 
-    if (!amount || !rate || !bank || !checks || !timer_min) { 
-        showToast('Заполните обязательные поля!'); 
+    if (!amount || !rate || rate.includes('Ошибка') || rate === 'Загрузка...' || !bank || !checks || !timer_min) { 
+        showToast('Заполните поля или дождитесь курса!'); 
         return; 
     }
 
@@ -276,7 +291,6 @@ function renderPayouts() {
         const baseRate = parseFloat(p.rate) || 0;
         const finalRate = (baseRate + (baseRate * markup / 100)).toFixed(2);
         
-        // СТРОГИЙ ПОРЯДОК В КАРТОЧКЕ
         let orderHtml = '';
         if (p.phone) orderHtml += `<div class="card-row">📱 Телефон: <b>${p.phone}</b></div>`;
         if (p.card_number) orderHtml += `<div class="card-row">💳 Карта: <b>${p.card_number}</b></div>`;
