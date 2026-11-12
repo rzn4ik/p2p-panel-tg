@@ -40,7 +40,7 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 .form-box{background:var(--bg-card);padding:15px;border-radius:10px;margin-bottom:15px;border:1px solid var(--border);display:none;}
 .form-box input{width:100%;padding:10px;margin-bottom:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:#fff;font-size:14px;}
 .form-box button{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;}
-.timer { font-size: 12px; color: var(--warning); font-weight: bold; }
+.timer { font-size: 13px; color: var(--warning); font-weight: bold; margin-top: 5px;}
 .timer.expired { color: var(--danger); }
 </style>
 </head>
@@ -59,8 +59,8 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
     <input type="number" id="checks" placeholder="Количество чеков (шт)" required>
     <input type="number" id="timer" placeholder="Таймер (минут)" required>
     <input type="text" id="bank" placeholder="Банк (например, Сбер)" required>
-    <input type="text" id="card" placeholder="Номер карты" required>
-    <input type="text" id="phone" placeholder="Телефон" required>
+    <input type="text" id="card" placeholder="Номер карты (необязательно)">
+    <input type="text" id="phone" placeholder="Телефон (необязательно)">
     <button onclick="submitPayout()">Опубликовать</button>
 </div>
 
@@ -146,8 +146,7 @@ function toggleForm() {
     const form = document.getElementById('createForm');
     form.style.display = form.style.display === 'block' ? 'none' : 'block';
     if (form.style.display === 'block') {
-        // Заглушка для курса Рапиры, позже заменим на реальный парсинг
-        document.getElementById('rate').value = 90.5; 
+        document.getElementById('rate').value = 90.5; // Тут потом будет Рапира
     }
 }
 
@@ -160,8 +159,9 @@ async function submitPayout() {
     const card = document.getElementById('card').value;
     const phone = document.getElementById('phone').value;
 
-    if (!amount || !rate || !bank || !card || !phone || !checks || !timer_min) { 
-        showToast('Заполните все поля!'); 
+    // Проверяем только обязательные поля (карту и телефон не требуем)
+    if (!amount || !rate || !bank || !checks || !timer_min) { 
+        showToast('Заполните обязательные поля!'); 
         return; 
     }
 
@@ -236,12 +236,14 @@ async function saveMarkup(tgId) {
             body: JSON.stringify({ telegram_id: tgId, markup: val })
         });
         showToast('Наценка сохранена');
+        if(currentUser) currentUser.markup = parseFloat(val); // Обновляем в памяти
     } catch (e) { showError('Сохранение: ' + e.message); }
 }
 
 function updateTimers() {
     const now = new Date().getTime();
     document.querySelectorAll('.timer').forEach(el => {
+        // Учитываем часовой пояс, добавляя Z в конце
         const created = new Date(el.dataset.created).getTime();
         const duration = parseInt(el.dataset.duration) * 60000;
         const end = created + duration;
@@ -263,29 +265,39 @@ function renderPayouts() {
     const container = document.getElementById('content');
     if (payoutsList.length === 0) { container.innerHTML = '<div class="loading">Нет заявок</div>'; return; }
 
-    // Рассчитываем курс с наценкой для текущего пользователя
-    let markup = currentUser.markup || 0;
+    // Берем наценку текущего пользователя
+    let markup = parseFloat(currentUser.markup) || 0;
 
     container.innerHTML = payoutsList.map(p => {
-        const finalRate = (parseFloat(p.rate) + (parseFloat(p.rate) * markup / 100)).toFixed(2);
+        const baseRate = parseFloat(p.rate) || 0;
+        const finalRate = (baseRate + (baseRate * markup / 100)).toFixed(2);
+        
+        // Формируем строку с контактами (только то, что есть)
+        let contacts = '';
+        if (p.card_number) contacts += `💳 Карта: <b>${p.card_number}</b><br>`;
+        if (p.phone) contacts += `📱 Телефон: <b>${p.phone}</b><br>`;
+
         return `
         <div class="card ${p.status}">
             <div class="card-header">
                 <span>${Math.round(p.amount)} ₽</span>
                 <span style="font-size:12px; color:var(--warning)">Курс: ${finalRate}</span>
             </div>
-            <div class="card-row">💳 Карта: <b>${p.card_number || '—'}</b></div>
-            <div class="card-row">📱 Телефон: <b>${p.phone || '—'}</b></div>
+            ${contacts}
             <div class="card-row">🏦 Банк: <b>${p.bank}</b></div>
             <div class="card-row">📄 Чеков: <b>${p.checks || 1}</b></div>
-            <div class="card-row timer" data-created="${p.created_at}Z" data-duration="${p.timer_min || 60}">⏳ Загрузка...</div>
+            <div class="timer" data-created="${p.created_at}Z" data-duration="${p.timer_min || 60}">⏳ Загрузка...</div>
             <div class="card-actions">
                 ${p.status === 'available' ? `<button class="green" onclick="takePayout(${p.id})">❤️ Взять в работу</button>` : ''}
             </div>
         </div>
     `}).join('');
     
+    // Запускаем таймер, если он еще не запущен
     updateTimers();
+    if (!timerInterval) {
+        timerInterval = setInterval(updateTimers, 1000);
+    }
 }
 
 async function takePayout(id) {
