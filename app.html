@@ -146,7 +146,7 @@ function toggleForm() {
     const form = document.getElementById('createForm');
     form.style.display = form.style.display === 'block' ? 'none' : 'block';
     if (form.style.display === 'block') {
-        document.getElementById('rate').value = 90.5; // Тут потом будет Рапира
+        document.getElementById('rate').value = 90.5;
     }
 }
 
@@ -159,7 +159,6 @@ async function submitPayout() {
     const card = document.getElementById('card').value;
     const phone = document.getElementById('phone').value;
 
-    // Проверяем только обязательные поля (карту и телефон не требуем)
     if (!amount || !rate || !bank || !checks || !timer_min) { 
         showToast('Заполните обязательные поля!'); 
         return; 
@@ -236,14 +235,17 @@ async function saveMarkup(tgId) {
             body: JSON.stringify({ telegram_id: tgId, markup: val })
         });
         showToast('Наценка сохранена');
-        if(currentUser) currentUser.markup = parseFloat(val); // Обновляем в памяти
+        // Если мы изменили наценку текущему пользователю — пересчитываем и обновляем
+        if (currentUser && currentUser.telegram_id === tgId) {
+            currentUser.markup = parseFloat(val);
+            renderPayouts();
+        }
     } catch (e) { showError('Сохранение: ' + e.message); }
 }
 
 function updateTimers() {
     const now = new Date().getTime();
     document.querySelectorAll('.timer').forEach(el => {
-        // Учитываем часовой пояс, добавляя Z в конце
         const created = new Date(el.dataset.created).getTime();
         const duration = parseInt(el.dataset.duration) * 60000;
         const end = created + duration;
@@ -265,26 +267,26 @@ function renderPayouts() {
     const container = document.getElementById('content');
     if (payoutsList.length === 0) { container.innerHTML = '<div class="loading">Нет заявок</div>'; return; }
 
-    // Берем наценку текущего пользователя
-    let markup = parseFloat(currentUser.markup) || 0;
+    // Рассчитываем наценку строго из данных текущего пользователя
+    let markup = currentUser ? (parseFloat(currentUser.markup) || 0) : 0;
 
     container.innerHTML = payoutsList.map(p => {
         const baseRate = parseFloat(p.rate) || 0;
         const finalRate = (baseRate + (baseRate * markup / 100)).toFixed(2);
         
-        // Формируем строку с контактами (только то, что есть)
+        // Строгий порядок строк
         let contacts = '';
-        if (p.card_number) contacts += `💳 Карта: <b>${p.card_number}</b><br>`;
-        if (p.phone) contacts += `📱 Телефон: <b>${p.phone}</b><br>`;
+        if (p.phone) contacts += `<div class="card-row">📱 Телефон: <b>${p.phone}</b></div>`;
+        if (p.card_number) contacts += `<div class="card-row">💳 Карта: <b>${p.card_number}</b></div>`;
+        contacts += `<div class="card-row">🏦 Банк: <b>${p.bank}</b></div>`;
 
         return `
         <div class="card ${p.status}">
             <div class="card-header">
-                <span>${Math.round(p.amount)} ₽</span>
+                <span>Сумма: ${Math.round(p.amount)} ₽</span>
                 <span style="font-size:12px; color:var(--warning)">Курс: ${finalRate}</span>
             </div>
             ${contacts}
-            <div class="card-row">🏦 Банк: <b>${p.bank}</b></div>
             <div class="card-row">📄 Чеков: <b>${p.checks || 1}</b></div>
             <div class="timer" data-created="${p.created_at}Z" data-duration="${p.timer_min || 60}">⏳ Загрузка...</div>
             <div class="card-actions">
@@ -293,7 +295,6 @@ function renderPayouts() {
         </div>
     `}).join('');
     
-    // Запускаем таймер, если он еще не запущен
     updateTimers();
     if (!timerInterval) {
         timerInterval = setInterval(updateTimers, 1000);
