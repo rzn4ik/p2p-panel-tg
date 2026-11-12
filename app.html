@@ -39,7 +39,7 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 .create-btn{width:100%;padding:10px;background:var(--accent-2);color:#fff;border:none;border-radius:8px;font-weight:bold;margin-bottom:15px;cursor:pointer;display:none;font-size:14px;}
 .form-box{background:var(--bg-card);padding:15px;border-radius:10px;margin-bottom:15px;border:1px solid var(--border);display:none;}
 .form-box input{width:100%;padding:10px;margin-bottom:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:#fff;font-size:14px;}
-.form-box button{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;}
+.form-box button{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer;margin-top:5px;}
 .timer { font-size: 13px; color: var(--warning); font-weight: bold; margin-top: 5px;}
 .timer.expired { color: var(--danger); }
 </style>
@@ -54,13 +54,17 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 <button id="createBtn" class="create-btn" onclick="toggleForm()">+ Создать заявку</button>
 
 <div id="createForm" class="form-box">
+    <!-- СТРОГИЙ ПОРЯДОК ПОЛЕЙ -->
+    <input type="text" id="phone" placeholder="Номер телефона (необязательно)">
+    <input type="text" id="card" placeholder="Номер карты (необязательно)">
+    <input type="text" id="bank" placeholder="Банк (например, Сбер)" required>
     <input type="number" id="amount" placeholder="Сумма (₽)" required>
-    <input type="number" id="rate" placeholder="Курс (автоматически)" readonly style="opacity:0.7; background: #0d0d15;">
     <input type="number" id="checks" placeholder="Количество чеков (шт)" required>
     <input type="number" id="timer" placeholder="Таймер (минут)" required>
-    <input type="text" id="bank" placeholder="Банк (например, Сбер)" required>
-    <input type="text" id="card" placeholder="Номер карты (необязательно)">
-    <input type="text" id="phone" placeholder="Телефон (необязательно)">
+    
+    <!-- Курс подтягивается автоматически -->
+    <input type="number" id="rate" placeholder="Курс" readonly style="opacity:0.7; background: #0d0d15; cursor:not-allowed;">
+    
     <button onclick="submitPayout()">Опубликовать</button>
 </div>
 
@@ -272,7 +276,7 @@ function renderPayouts() {
         const baseRate = parseFloat(p.rate) || 0;
         const finalRate = (baseRate + (baseRate * markup / 100)).toFixed(2);
         
-        // СТРОГИЙ ПОРЯДОК КАК ТЫ ПРОСИЛ
+        // СТРОГИЙ ПОРЯДОК В КАРТОЧКЕ
         let orderHtml = '';
         if (p.phone) orderHtml += `<div class="card-row">📱 Телефон: <b>${p.phone}</b></div>`;
         if (p.card_number) orderHtml += `<div class="card-row">💳 Карта: <b>${p.card_number}</b></div>`;
