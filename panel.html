@@ -252,7 +252,14 @@ async function toggleForm() {
     
     if (form.style.display === 'block') {
         const rateInput = document.getElementById('rate');
-        // Если смена активна, берем курс из смены
+        // Очищаем все поля, кроме курса
+        document.getElementById('phone').value = '';
+        document.getElementById('card').value = '';
+        document.getElementById('bank').value = '';
+        document.getElementById('amount').value = '';
+        document.getElementById('checks').value = '';
+        document.getElementById('timer').value = '';
+
         if (currentShift) {
             rateInput.value = currentShift.shift_rate;
             rateInput.style.color = '#fff';
@@ -263,7 +270,7 @@ async function toggleForm() {
     }
 }
 
-async function submitPayout() {
+async function submitPayout(confirmDup = false) {
     const amount = document.getElementById('amount').value;
     const rate = document.getElementById('rate').value;
     const checks = document.getElementById('checks').value;
@@ -281,16 +288,22 @@ async function submitPayout() {
         const res = await fetch(`${API_URL}/api/payouts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount, rate, bank, card, phone, checks, timer_min })
+            body: JSON.stringify({ amount, rate, bank, card, phone, checks, timer_min, confirmDuplicate: confirmDup })
         });
         const data = await res.json();
         
         if (data.isDuplicate) {
-            showToast('⚠️ ВНИМАНИЕ: Дубликат реквизитов за смену!');
-        } else {
-            showToast('Заявка создана!');
+            // Спрашиваем подтверждение
+            if (confirm('⚠️ ВНИМАНИЕ! Эти реквизиты уже были в эту смену. Точно выложить заявку?')) {
+                // Если да, отправляем еще раз с флагом
+                await submitPayout(true);
+            } else {
+                showToast('Заявка отменена.');
+            }
+            return;
         }
-        
+
+        showToast('Заявка создана!');
         toggleForm();
         await fetchData();
     } catch(e) {
