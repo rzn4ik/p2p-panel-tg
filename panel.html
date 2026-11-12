@@ -143,10 +143,12 @@ async function initApp() {
 }
 
 async function checkShift() {
-    const res = await fetch(`${API_URL}/api/shift/current`);
-    const data = await res.json();
-    currentShift = data.shift;
-    updateShiftUI();
+    try {
+        const res = await fetch(`${API_URL}/api/shift/current`);
+        const data = await res.json();
+        currentShift = data.shift;
+        updateShiftUI();
+    } catch(e) { console.log('Shift error:', e); }
 }
 
 function updateShiftUI() {
