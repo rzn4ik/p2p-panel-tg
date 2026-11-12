@@ -135,11 +135,47 @@ async function initApp() {
         updateUI();
         await checkShift();
         await fetchData();
+        startRateParser(); // Запускаем парсер курса
 
     } catch (e) {
         showError('Авторизация: ' + e.message);
         document.getElementById('content').innerHTML = '<div class="loading" style="color:red">Ошибка авторизации</div>';
     }
+}
+
+// ПАРСЕР КУРСА (раз в минуту)
+async function startRateParser() {
+    const updateRate = async () => {
+        try {
+            // Идем на P2PMachine через наш сервер (он парсит HTML)
+            // Но так как мы уже знаем, что сервер не может достучаться, 
+            // мы делаем это через браузер пользователя (кросс-доменный запрос может блокироваться, но попробуем)
+            const res = await fetch("https://p2pmachine.com/kurs/usdt/rapira", {
+                headers: { "Accept": "text/html" }
+            });
+            
+            if (res.ok) {
+                const html = await res.text();
+                const match = html.match(/Продажа\s*([\d,\.]+)\s*₽/);
+                if (match && match[1]) {
+                    const rate = parseFloat(match[1].replace(',', '.'));
+                    // Отправляем на наш сервер для сохранения
+                    await fetch(`${API_URL}/api/rate/update`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ rate })
+                    });
+                    console.log('Курс обновлен:', rate);
+                }
+            }
+        } catch(e) {
+            console.log('Ошибка парсера (браузер):', e.message);
+        }
+    };
+
+    // Обновляем сразу и потом каждые 60 секунд
+    updateRate();
+    setInterval(updateRate, 60000);
 }
 
 async function checkShift() {
