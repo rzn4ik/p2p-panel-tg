@@ -114,71 +114,23 @@ let payoutsList = [];
 let timerInterval = null;
 let currentShift = null;
 
+// --- ХАРДКОД ТЕСТОВОГО ПОЛЬЗОВАТЕЛЯ ---
+// Этот код сразу ставит тебя админом, не спрашивая сервер.
+const MOCK_USER = { telegram_id: '858699626', username: 'admin', role: 'admin', markup: 0 };
+// --------------------------------------
+
 document.addEventListener('DOMContentLoaded', () => {
     if (window.Telegram && window.Telegram.WebApp) {
         tg = window.Telegram.WebApp;
         try { tg.expand(); tg.ready(); } catch(e) { console.log('TG Error:', e); }
     }
-    initApp();
+    
+    // СРАЗУ ГРУЗИМ ИНТЕРФЕЙС
+    currentUser = MOCK_USER;
+    updateUI();
+    checkShift();
+    fetchData();
 });
-
-async function initApp() {
-    try {
-        // Если в Telegram — берем initData
-        if (tg && tg.initData) {
-            await loginWithInitData();
-        } 
-        // Если на ПК (в браузере) — берем ID из localStorage или ставим твой по умолчанию
-        else {
-            let savedId = localStorage.getItem('manualId');
-            if (!savedId) savedId = '858699626'; // Твой ID по умолчанию
-            await loginWithId(savedId);
-        }
-    } catch (e) {
-        showError('Ошибка входа: ' + e.message);
-    }
-}
-
-async function loginWithInitData() {
-    try {
-        document.getElementById('userInfo').innerText = 'Авторизация...';
-        const res = await fetch(`${API_URL}/api/auth`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ initData: tg.initData })
-        });
-        if (!res.ok) throw new Error('Ошибка сервера ' + res.status);
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        currentUser = data.user;
-        updateUI();
-        await checkShift();
-        await fetchData();
-    } catch (e) {
-        showError('Авторизация: ' + e.message);
-    }
-}
-
-async function loginWithId(id) {
-    try {
-        document.getElementById('userInfo').innerText = 'Авторизация...';
-        const res = await fetch(`${API_URL}/api/auth`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ manualId: id })
-        });
-        if (!res.ok) throw new Error('Ошибка сервера ' + res.status);
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        currentUser = data.user;
-        localStorage.setItem('manualId', id);
-        updateUI();
-        await checkShift();
-        await fetchData();
-    } catch (e) {
-        showError('Вход по ID: ' + e.message);
-    }
-}
 
 async function checkShift() {
     try {
