@@ -48,66 +48,54 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 .shift-rate-box { display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--warning); }
 .shift-rate-box input { width: 80px; padding: 5px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: #fff; text-align: center; font-weight: bold;}
 .shift-rate-box button { padding: 5px 10px; border-radius: 4px; background: var(--warning); color: #fff; border: none; cursor: pointer; font-weight: bold;}
-.login-box { background: var(--bg-card); padding: 20px; border-radius: 10px; text-align: center; margin-top: 50px; }
-.login-box input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: #fff; font-size: 16px; text-align: center; }
-.login-box button { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; }
 </style>
 </head>
 <body>
 
 <div id="jsError"></div>
 
-<div id="loginBox" class="login-box" style="display:none;">
-    <h2>Вход в панель</h2>
-    <p style="color:var(--text-dim); font-size:12px; margin-bottom:10px;">Введите ваш ID (например, 7704921910)</p>
-    <input type="text" id="manualIdInput" placeholder="ID">
-    <button onclick="loginWithId()">Войти</button>
+<h1>📊 Панель заявок <span id="userBadge" class="badge">...</span></h1>
+<div class="me" id="userInfo">Инициализация...</div>
+
+<button id="shiftBtn" class="shift-btn" onclick="toggleShift()">Начать смену</button>
+
+<div id="shiftForm" class="form-box">
+    <select id="workerSelect">
+        <option value="">Выберите воркера</option>
+        <option value="Денис">Денис</option>
+        <option value="Дмитрий">Дмитрий</option>
+        <option value="Евгений">Евгений</option>
+        <option value="Артем">Артем</option>
+    </select>
+    <input type="number" id="startShiftRate" placeholder="Введите курс Рапиры" step="0.01" required>
+    <button onclick="startShift()">Подтвердить</button>
 </div>
 
-<div id="mainApp" style="display:none;">
-    <h1>📊 Панель заявок <span id="userBadge" class="badge">...</span></h1>
-    <div class="me" id="userInfo">Инициализация...</div>
-
-    <button id="shiftBtn" class="shift-btn" onclick="toggleShift()">Начать смену</button>
-
-    <div id="shiftForm" class="form-box">
-        <select id="workerSelect">
-            <option value="">Выберите воркера</option>
-            <option value="Денис">Денис</option>
-            <option value="Дмитрий">Дмитрий</option>
-            <option value="Евгений">Евгений</option>
-            <option value="Артем">Артем</option>
-        </select>
-        <input type="number" id="startShiftRate" placeholder="Введите курс Рапиры" step="0.01" required>
-        <button onclick="startShift()">Подтвердить</button>
-    </div>
-
-    <div id="shiftRateBox" class="shift-rate-box" style="display:none;">
-        <span>Курс смены:</span>
-        <input type="number" id="shiftRateInput" step="0.01">
-        <button onclick="saveShiftRate()">Сохранить</button>
-    </div>
-
-    <button id="createBtn" class="create-btn" onclick="toggleForm()">+ Создать заявку</button>
-
-    <div id="createForm" class="form-box">
-        <input type="text" id="phone" placeholder="Номер телефона (необязательно)">
-        <input type="text" id="card" placeholder="Номер карты (необязательно)">
-        <input type="text" id="bank" placeholder="Банк (например, Сбер)" required>
-        <input type="number" id="amount" placeholder="Сумма (₽)" required>
-        <input type="number" id="checks" placeholder="Количество чеков (шт)" required>
-        <input type="number" id="timer" placeholder="Таймер (минут)" required>
-        <input type="text" id="rate" placeholder="Курс" readonly style="opacity:0.7; background: #0d0d15; cursor:not-allowed;">
-        <button onclick="submitPayout()">Опубликовать</button>
-    </div>
-
-    <div class="tabs" id="tabsContainer">
-      <button id="tabPayouts" class="active" onclick="setTab('payouts')">📋 Заявки</button>
-      <button id="tabClients" onclick="setTab('clients')" style="display:none;">👥 Клиенты</button>
-    </div>
-
-    <div id="content" class="loading">Загрузка данных...</div>
+<div id="shiftRateBox" class="shift-rate-box" style="display:none;">
+    <span>Курс смены:</span>
+    <input type="number" id="shiftRateInput" step="0.01">
+    <button onclick="saveShiftRate()">Сохранить</button>
 </div>
+
+<button id="createBtn" class="create-btn" onclick="toggleForm()">+ Создать заявку</button>
+
+<div id="createForm" class="form-box">
+    <input type="text" id="phone" placeholder="Номер телефона (необязательно)">
+    <input type="text" id="card" placeholder="Номер карты (необязательно)">
+    <input type="text" id="bank" placeholder="Банк (например, Сбер)" required>
+    <input type="number" id="amount" placeholder="Сумма (₽)" required>
+    <input type="number" id="checks" placeholder="Количество чеков (шт)" required>
+    <input type="number" id="timer" placeholder="Таймер (минут)" required>
+    <input type="text" id="rate" placeholder="Курс" readonly style="opacity:0.7; background: #0d0d15; cursor:not-allowed;">
+    <button onclick="submitPayout()">Опубликовать</button>
+</div>
+
+<div class="tabs" id="tabsContainer">
+  <button id="tabPayouts" class="active" onclick="setTab('payouts')">📋 Заявки</button>
+  <button id="tabClients" onclick="setTab('clients')" style="display:none;">👥 Клиенты</button>
+</div>
+
+<div id="content" class="loading">Загрузка данных...</div>
 
 <script>
 window.onerror = function(msg, url, line) {
@@ -125,7 +113,6 @@ let clientsList = [];
 let payoutsList = [];
 let timerInterval = null;
 let currentShift = null;
-let manualId = localStorage.getItem('manualId');
 
 document.addEventListener('DOMContentLoaded', () => {
     if (window.Telegram && window.Telegram.WebApp) {
@@ -136,15 +123,20 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function initApp() {
-    if (manualId) {
-        await loginWithId(manualId);
-        return;
+    try {
+        // Если в Telegram — берем initData
+        if (tg && tg.initData) {
+            await loginWithInitData();
+        } 
+        // Если на ПК (в браузере) — берем ID из localStorage или ставим твой по умолчанию
+        else {
+            let savedId = localStorage.getItem('manualId');
+            if (!savedId) savedId = '858699626'; // Твой ID по умолчанию
+            await loginWithId(savedId);
+        }
+    } catch (e) {
+        showError('Ошибка входа: ' + e.message);
     }
-    if (tg && tg.initData) {
-        await loginWithInitData();
-        return;
-    }
-    document.getElementById('loginBox').style.display = 'block';
 }
 
 async function loginWithInitData() {
@@ -159,18 +151,17 @@ async function loginWithInitData() {
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         currentUser = data.user;
-        showMainApp();
+        updateUI();
         await checkShift();
         await fetchData();
     } catch (e) {
         showError('Авторизация: ' + e.message);
-        document.getElementById('loginBox').style.display = 'block';
     }
 }
 
 async function loginWithId(id) {
     try {
-        document.getElementById('loginBox').style.display = 'none';
+        document.getElementById('userInfo').innerText = 'Авторизация...';
         const res = await fetch(`${API_URL}/api/auth`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -181,19 +172,12 @@ async function loginWithId(id) {
         if (data.error) throw new Error(data.error);
         currentUser = data.user;
         localStorage.setItem('manualId', id);
-        showMainApp();
+        updateUI();
         await checkShift();
         await fetchData();
     } catch (e) {
         showError('Вход по ID: ' + e.message);
-        document.getElementById('loginBox').style.display = 'block';
     }
-}
-
-function showMainApp() {
-    document.getElementById('loginBox').style.display = 'none';
-    document.getElementById('mainApp').style.display = 'block';
-    updateUI();
 }
 
 async function checkShift() {
@@ -208,6 +192,7 @@ async function checkShift() {
 function updateShiftUI() {
     const shiftBtn = document.getElementById('shiftBtn');
     const rateBox = document.getElementById('shiftRateBox');
+    
     if (currentShift) {
         shiftBtn.innerText = `Закончить смену (${currentShift.worker_name})`;
         shiftBtn.style.background = 'var(--danger)';
@@ -221,15 +206,20 @@ function updateShiftUI() {
 }
 
 function toggleShift() {
-    if (currentShift) endShift();
-    else document.getElementById('shiftForm').style.display = 'block';
+    if (currentShift) {
+        endShift();
+    } else {
+        document.getElementById('shiftForm').style.display = 'block';
+    }
 }
 
 async function startShift() {
     const worker = document.getElementById('workerSelect').value;
     const rate = document.getElementById('startShiftRate').value;
+    
     if (!worker) { showToast('Выберите имя!'); return; }
     if (!rate) { showToast('Введите курс Рапиры!'); return; }
+    
     const res = await fetch(`${API_URL}/api/shift/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,6 +243,7 @@ async function endShift() {
 async function saveShiftRate() {
     const newRate = document.getElementById('shiftRateInput').value;
     if (!newRate) return;
+    
     const res = await fetch(`${API_URL}/api/shift/rate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -270,7 +261,9 @@ function updateUI() {
     const info = document.getElementById('userInfo');
     badge.textContent = `@${currentUser.username} (${currentUser.role})`;
     badge.className = 'badge ' + currentUser.role;
+    
     const isStaff = currentUser.role === 'admin' || currentUser.role === 'worker';
+
     if (isStaff) {
         info.textContent = `ID: ${currentUser.telegram_id} • Наценка: ${currentUser.markup || 0}%`;
         document.getElementById('tabClients').style.display = 'block';
@@ -284,6 +277,7 @@ function updateUI() {
 async function toggleForm() {
     const form = document.getElementById('createForm');
     form.style.display = form.style.display === 'block' ? 'none' : 'block';
+    
     if (form.style.display === 'block') {
         const rateInput = document.getElementById('rate');
         document.getElementById('phone').value = '';
@@ -292,6 +286,7 @@ async function toggleForm() {
         document.getElementById('amount').value = '';
         document.getElementById('checks').value = '';
         document.getElementById('timer').value = '';
+
         if (currentShift) {
             rateInput.value = currentShift.shift_rate;
             rateInput.style.color = '#fff';
@@ -310,7 +305,12 @@ async function submitPayout(confirmDup = false) {
     const bank = document.getElementById('bank').value;
     const card = document.getElementById('card').value;
     const phone = document.getElementById('phone').value;
-    if (!amount || !rate || rate.includes('Ошибка') || !bank || !checks || !timer_min) { showToast('Заполните поля!'); return; }
+
+    if (!amount || !rate || rate.includes('Ошибка') || !bank || !checks || !timer_min) { 
+        showToast('Заполните поля!'); 
+        return; 
+    }
+
     try {
         const res = await fetch(`${API_URL}/api/payouts`, {
             method: 'POST',
@@ -318,6 +318,7 @@ async function submitPayout(confirmDup = false) {
             body: JSON.stringify({ amount, rate, bank, card, phone, checks, timer_min, confirmDuplicate: confirmDup })
         });
         const data = await res.json();
+        
         if (data.isDuplicate) {
             if (confirm('⚠️ ВНИМАНИЕ! Эти реквизиты уже были в эту смену. Точно выложить заявку?')) {
                 await submitPayout(true);
@@ -326,10 +327,13 @@ async function submitPayout(confirmDup = false) {
             }
             return;
         }
+
         showToast('Заявка создана!');
         toggleForm();
         await fetchData();
-    } catch(e) { showError('Создание: ' + e.message); }
+    } catch(e) {
+        showError('Создание: ' + e.message);
+    }
 }
 
 function setTab(tab) {
@@ -337,6 +341,7 @@ function setTab(tab) {
     document.getElementById('tabPayouts').classList.remove('active');
     document.getElementById('tabClients').classList.remove('active');
     document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+    
     if (tab === 'clients') fetchClients();
     else fetchData();
 }
@@ -361,6 +366,7 @@ async function fetchClients() {
 function renderClients() {
     const container = document.getElementById('content');
     if (clientsList.length === 0) { container.innerHTML = '<div class="loading">Клиентов пока нет</div>'; return; }
+
     container.innerHTML = clientsList.map(c => `
         <div class="client-row">
             <div class="client-info">
@@ -399,6 +405,7 @@ function updateTimers() {
         const duration = parseInt(el.dataset.duration) * 60000;
         const end = created + duration;
         const diff = end - now;
+
         if (diff > 0) {
             const mins = Math.floor(diff / 60000);
             const secs = Math.floor((diff % 60000) / 1000);
@@ -414,19 +421,24 @@ function updateTimers() {
 function renderPayouts() {
     const container = document.getElementById('content');
     if (payoutsList.length === 0) { container.innerHTML = '<div class="loading">Нет заявок</div>'; return; }
+
     let markup = currentUser ? (parseFloat(currentUser.markup) || 0) : 0;
     const isStaff = currentUser.role === 'admin' || currentUser.role === 'worker';
+
     container.innerHTML = payoutsList.map(p => {
         const baseRate = parseFloat(p.rate) || 0;
         const finalRate = (baseRate + (baseRate * markup / 100)).toFixed(2);
+        
         let orderHtml = '';
         if (p.phone) orderHtml += `<div class="card-row">📱 Телефон: <b>${p.phone}</b></div>`;
         if (p.card_number) orderHtml += `<div class="card-row">💳 Карта: <b>${p.card_number}</b></div>`;
         orderHtml += `<div class="card-row">🏦 Банк: <b>${p.bank}</b></div>`;
         orderHtml += `<div class="card-row">💰 Сумма: <b>${Math.round(p.amount)} ₽</b></div>`;
         orderHtml += `<div class="card-row">📄 Чеков: <b>${p.checks || 1}</b></div>`;
+
         let workerHtml = '';
         if (p.worker_name) workerHtml = `<span class="worker-badge">Воркер: ${p.worker_name}</span>`;
+
         return `
         <div class="card ${p.status}">
             <div class="card-header">
@@ -441,6 +453,47 @@ function renderPayouts() {
             </div>
         </div>
     `}).join('');
+    
     updateTimers();
     if (!timerInterval) {
-        timerInterval = set
+        timerInterval = setInterval(updateTimers, 1000);
+    }
+}
+
+async function takePayout(id) {
+    showToast('Взято в работу (тест)');
+}
+
+async function deletePayout(id) {
+    if (!confirm('Удалить заявку?')) return;
+    try {
+        await fetch(`${API_URL}/api/payouts/delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        showToast('Удалено');
+        await fetchData();
+    } catch(e) { showError('Удаление: ' + e.message); }
+}
+
+async function editPayout(id) {
+    showToast('Редактирование пока в разработке (следующий шаг)');
+}
+
+function showError(msg) {
+    const el = document.getElementById('jsError');
+    el.style.display = 'block';
+    el.innerText = 'Ошибка: ' + msg;
+}
+
+function showToast(msg) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.innerText = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+}
+</script>
+</body>
+</html>
