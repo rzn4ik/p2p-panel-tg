@@ -251,6 +251,7 @@ function updateUI() {
         document.getElementById('shiftBtn').style.display = 'block';
     } else {
         info.textContent = `ID: ${currentUser.telegram_id}`;
+        document.getElementById('shiftRateBox').style.display = 'none'; // <-- СКРЫВАЕМ КУРС ДЛЯ КЛИЕНТА
     }
 }
 
