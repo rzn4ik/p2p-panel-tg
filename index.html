@@ -73,7 +73,6 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
         <button onclick="startShift()">Подтвердить</button>
     </div>
 
-    <!-- Блок курса (виден только админу/воркеру) -->
     <div id="shiftRateBox" class="shift-rate-box" style="display:none;">
         <span>Курс смены:</span>
         <input type="number" id="shiftRateInput" step="0.01">
@@ -257,7 +256,7 @@ function updateUI() {
         document.getElementById('shiftBtn').style.display = 'block';
     } else {
         info.textContent = `ID: ${currentUser.telegram_id}`;
-        document.getElementById('shiftRateBox').style.display = 'none'; // Скрываем для клиента
+        document.getElementById('shiftRateBox').style.display = 'none';
     }
 }
 
@@ -427,75 +426,4 @@ function renderPayouts() {
 }
 
 async function takePayout(id) {
-    if (!confirm('Взять заявку в работу?')) return;
-    try {
-        await fetch(`${API_URL}/api/payouts/take`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, client_id: currentUser.telegram_id })
-        });
-        showToast('Заявка взята в работу!');
-        await fetchData();
-    } catch(e) { showError('Взятие: ' + e.message); }
-}
-
-async function attachCheck(id) {
-    tg.showAlert('Отправьте фото чека боту @p2p_panel_bot в чат!');
-}
-
-async function cancelPayout(id) {
-    const reason = prompt('Укажите причину отмены:');
-    if (reason === null) return;
-    try {
-        await fetch(`${API_URL}/api/payouts/cancel`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, reason })
-        });
-        showToast('Заявка отменена');
-        await fetchData();
-    } catch(e) { showError('Отмена: ' + e.message); }
-}
-
-async function finishPayout(id) {
-    if (!confirm('Завершить заявку?')) return;
-    try {
-        await fetch(`${API_URL}/api/payouts/finish`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id })
-        });
-        showToast('Заявка завершена!');
-        await fetchData();
-    } catch(e) { showError('Завершение: ' + e.message); }
-}
-
-async function deletePayout(id) {
-    if (!confirm('Удалить заявку?')) return;
-    try {
-        await fetch(`${API_URL}/api/payouts/delete`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id })
-        });
-        showToast('Удалено');
-        await fetchData();
-    } catch(e) { showError('Удаление: ' + e.message); }
-}
-
-function showError(msg) {
-    const el = document.getElementById('jsError');
-    el.style.display = 'block';
-    el.innerText = 'Ошибка: ' + msg;
-}
-
-function showToast(msg) {
-    const el = document.createElement('div');
-    el.className = 'toast';
-    el.innerText = msg;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 3000);
-}
-</script>
-</body>
-</html>
+    if (!confirm('Взять заявку в
