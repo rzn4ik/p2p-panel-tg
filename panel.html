@@ -105,7 +105,9 @@ window.onerror = function(msg, url, line) {
   return false;
 };
 
-const API_URL = 'https://fragrant-art-d8ae.rzn4ik.workers.dev';
+// ВНИМАНИЕ: ТУТ ТВОЙ НОВЫЙ IP-АДРЕС СЕРВЕРА
+const API_URL = 'http://152.228.98.241:8000';
+
 let tg = null;
 let currentUser = null;
 let currentTab = 'payouts';
@@ -113,24 +115,74 @@ let clientsList = [];
 let payoutsList = [];
 let timerInterval = null;
 let currentShift = null;
-
-// --- ХАРДКОД ТЕСТОВОГО ПОЛЬЗОВАТЕЛЯ ---
-// Этот код сразу ставит тебя админом, не спрашивая сервер.
-const MOCK_USER = { telegram_id: '858699626', username: 'admin', role: 'admin', markup: 0 };
-// --------------------------------------
+let manualId = localStorage.getItem('manualId');
 
 document.addEventListener('DOMContentLoaded', () => {
     if (window.Telegram && window.Telegram.WebApp) {
         tg = window.Telegram.WebApp;
         try { tg.expand(); tg.ready(); } catch(e) { console.log('TG Error:', e); }
     }
-    
-    // СРАЗУ ГРУЗИМ ИНТЕРФЕЙС
-    currentUser = MOCK_USER;
-    updateUI();
-    checkShift();
-    fetchData();
+    initApp();
 });
+
+async function initApp() {
+    if (manualId) {
+        await loginWithId(manualId);
+        return;
+    }
+    if (tg && tg.initData) {
+        await loginWithInitData();
+        return;
+    }
+    // Если ничего нет, показываем тестового админа для ПК
+    await loginWithId('858699626'); 
+}
+
+async function loginWithInitData() {
+    try {
+        document.getElementById('userInfo').innerText = 'Авторизация...';
+        const res = await fetch(`${API_URL}/api/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: tg.initData })
+        });
+        if (!res.ok) throw new Error('Ошибка сервера ' + res.status);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        currentUser = data.user;
+        showMainApp();
+        await checkShift();
+        await fetchData();
+    } catch (e) {
+        showError('Авторизация: ' + e.message);
+    }
+}
+
+async function loginWithId(id) {
+    try {
+        document.getElementById('userInfo').innerText = 'Авторизация...';
+        const res = await fetch(`${API_URL}/api/auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ manualId: id })
+        });
+        if (!res.ok) throw new Error('Ошибка сервера ' + res.status);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        currentUser = data.user;
+        localStorage.setItem('manualId', id);
+        showMainApp();
+        await checkShift();
+        await fetchData();
+    } catch (e) {
+        showError('Вход по ID: ' + e.message);
+    }
+}
+
+function showMainApp() {
+    document.getElementById('mainApp').style.display = 'block';
+    updateUI();
+}
 
 async function checkShift() {
     try {
@@ -144,7 +196,6 @@ async function checkShift() {
 function updateShiftUI() {
     const shiftBtn = document.getElementById('shiftBtn');
     const rateBox = document.getElementById('shiftRateBox');
-    
     if (currentShift) {
         shiftBtn.innerText = `Закончить смену (${currentShift.worker_name})`;
         shiftBtn.style.background = 'var(--danger)';
@@ -158,20 +209,15 @@ function updateShiftUI() {
 }
 
 function toggleShift() {
-    if (currentShift) {
-        endShift();
-    } else {
-        document.getElementById('shiftForm').style.display = 'block';
-    }
+    if (currentShift) endShift();
+    else document.getElementById('shiftForm').style.display = 'block';
 }
 
 async function startShift() {
     const worker = document.getElementById('workerSelect').value;
     const rate = document.getElementById('startShiftRate').value;
-    
     if (!worker) { showToast('Выберите имя!'); return; }
     if (!rate) { showToast('Введите курс Рапиры!'); return; }
-    
     const res = await fetch(`${API_URL}/api/shift/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -195,7 +241,6 @@ async function endShift() {
 async function saveShiftRate() {
     const newRate = document.getElementById('shiftRateInput').value;
     if (!newRate) return;
-    
     const res = await fetch(`${API_URL}/api/shift/rate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -213,9 +258,7 @@ function updateUI() {
     const info = document.getElementById('userInfo');
     badge.textContent = `@${currentUser.username} (${currentUser.role})`;
     badge.className = 'badge ' + currentUser.role;
-    
     const isStaff = currentUser.role === 'admin' || currentUser.role === 'worker';
-
     if (isStaff) {
         info.textContent = `ID: ${currentUser.telegram_id} • Наценка: ${currentUser.markup || 0}%`;
         document.getElementById('tabClients').style.display = 'block';
@@ -229,7 +272,6 @@ function updateUI() {
 async function toggleForm() {
     const form = document.getElementById('createForm');
     form.style.display = form.style.display === 'block' ? 'none' : 'block';
-    
     if (form.style.display === 'block') {
         const rateInput = document.getElementById('rate');
         document.getElementById('phone').value = '';
@@ -238,7 +280,6 @@ async function toggleForm() {
         document.getElementById('amount').value = '';
         document.getElementById('checks').value = '';
         document.getElementById('timer').value = '';
-
         if (currentShift) {
             rateInput.value = currentShift.shift_rate;
             rateInput.style.color = '#fff';
@@ -270,7 +311,6 @@ async function submitPayout(confirmDup = false) {
             body: JSON.stringify({ amount, rate, bank, card, phone, checks, timer_min, confirmDuplicate: confirmDup })
         });
         const data = await res.json();
-        
         if (data.isDuplicate) {
             if (confirm('⚠️ ВНИМАНИЕ! Эти реквизиты уже были в эту смену. Точно выложить заявку?')) {
                 await submitPayout(true);
@@ -279,13 +319,10 @@ async function submitPayout(confirmDup = false) {
             }
             return;
         }
-
         showToast('Заявка создана!');
         toggleForm();
         await fetchData();
-    } catch(e) {
-        showError('Создание: ' + e.message);
-    }
+    } catch(e) { showError('Создание: ' + e.message); }
 }
 
 function setTab(tab) {
@@ -293,7 +330,6 @@ function setTab(tab) {
     document.getElementById('tabPayouts').classList.remove('active');
     document.getElementById('tabClients').classList.remove('active');
     document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-    
     if (tab === 'clients') fetchClients();
     else fetchData();
 }
@@ -318,7 +354,6 @@ async function fetchClients() {
 function renderClients() {
     const container = document.getElementById('content');
     if (clientsList.length === 0) { container.innerHTML = '<div class="loading">Клиентов пока нет</div>'; return; }
-
     container.innerHTML = clientsList.map(c => `
         <div class="client-row">
             <div class="client-info">
@@ -357,7 +392,6 @@ function updateTimers() {
         const duration = parseInt(el.dataset.duration) * 60000;
         const end = created + duration;
         const diff = end - now;
-
         if (diff > 0) {
             const mins = Math.floor(diff / 60000);
             const secs = Math.floor((diff % 60000) / 1000);
@@ -373,24 +407,19 @@ function updateTimers() {
 function renderPayouts() {
     const container = document.getElementById('content');
     if (payoutsList.length === 0) { container.innerHTML = '<div class="loading">Нет заявок</div>'; return; }
-
     let markup = currentUser ? (parseFloat(currentUser.markup) || 0) : 0;
     const isStaff = currentUser.role === 'admin' || currentUser.role === 'worker';
-
     container.innerHTML = payoutsList.map(p => {
         const baseRate = parseFloat(p.rate) || 0;
         const finalRate = (baseRate + (baseRate * markup / 100)).toFixed(2);
-        
         let orderHtml = '';
         if (p.phone) orderHtml += `<div class="card-row">📱 Телефон: <b>${p.phone}</b></div>`;
         if (p.card_number) orderHtml += `<div class="card-row">💳 Карта: <b>${p.card_number}</b></div>`;
         orderHtml += `<div class="card-row">🏦 Банк: <b>${p.bank}</b></div>`;
         orderHtml += `<div class="card-row">💰 Сумма: <b>${Math.round(p.amount)} ₽</b></div>`;
         orderHtml += `<div class="card-row">📄 Чеков: <b>${p.checks || 1}</b></div>`;
-
         let workerHtml = '';
         if (p.worker_name) workerHtml = `<span class="worker-badge">Воркер: ${p.worker_name}</span>`;
-
         return `
         <div class="card ${p.status}">
             <div class="card-header">
@@ -405,7 +434,6 @@ function renderPayouts() {
             </div>
         </div>
     `}).join('');
-    
     updateTimers();
     if (!timerInterval) {
         timerInterval = setInterval(updateTimers, 1000);
