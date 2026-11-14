@@ -54,48 +54,51 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 
 <div id="jsError"></div>
 
-<h1>📊 Панель заявок <span id="userBadge" class="badge">...</span></h1>
-<div class="me" id="userInfo">Инициализация...</div>
+<!-- ЭТОТ БЛОК БЫЛ ПРОПУЩЕН -->
+<div id="mainApp" style="display:none;">
+    <h1>📊 Панель заявок <span id="userBadge" class="badge">...</span></h1>
+    <div class="me" id="userInfo">Инициализация...</div>
 
-<button id="shiftBtn" class="shift-btn" onclick="toggleShift()">Начать смену</button>
+    <button id="shiftBtn" class="shift-btn" onclick="toggleShift()">Начать смену</button>
 
-<div id="shiftForm" class="form-box">
-    <select id="workerSelect">
-        <option value="">Выберите воркера</option>
-        <option value="Денис">Денис</option>
-        <option value="Дмитрий">Дмитрий</option>
-        <option value="Евгений">Евгений</option>
-        <option value="Артем">Артем</option>
-    </select>
-    <input type="number" id="startShiftRate" placeholder="Введите курс Рапиры" step="0.01" required>
-    <button onclick="startShift()">Подтвердить</button>
+    <div id="shiftForm" class="form-box">
+        <select id="workerSelect">
+            <option value="">Выберите воркера</option>
+            <option value="Денис">Денис</option>
+            <option value="Дмитрий">Дмитрий</option>
+            <option value="Евгений">Евгений</option>
+            <option value="Артем">Артем</option>
+        </select>
+        <input type="number" id="startShiftRate" placeholder="Введите курс Рапиры" step="0.01" required>
+        <button onclick="startShift()">Подтвердить</button>
+    </div>
+
+    <div id="shiftRateBox" class="shift-rate-box" style="display:none;">
+        <span>Курс смены:</span>
+        <input type="number" id="shiftRateInput" step="0.01">
+        <button onclick="saveShiftRate()">Сохранить</button>
+    </div>
+
+    <button id="createBtn" class="create-btn" onclick="toggleForm()">+ Создать заявку</button>
+
+    <div id="createForm" class="form-box">
+        <input type="text" id="phone" placeholder="Номер телефона (необязательно)">
+        <input type="text" id="card" placeholder="Номер карты (необязательно)">
+        <input type="text" id="bank" placeholder="Банк (например, Сбер)" required>
+        <input type="number" id="amount" placeholder="Сумма (₽)" required>
+        <input type="number" id="checks" placeholder="Количество чеков (шт)" required>
+        <input type="number" id="timer" placeholder="Таймер (минут)" required>
+        <input type="text" id="rate" placeholder="Курс" readonly style="opacity:0.7; background: #0d0d15; cursor:not-allowed;">
+        <button onclick="submitPayout()">Опубликовать</button>
+    </div>
+
+    <div class="tabs" id="tabsContainer">
+      <button id="tabPayouts" class="active" onclick="setTab('payouts')">📋 Заявки</button>
+      <button id="tabClients" onclick="setTab('clients')" style="display:none;">👥 Клиенты</button>
+    </div>
+
+    <div id="content" class="loading">Загрузка данных...</div>
 </div>
-
-<div id="shiftRateBox" class="shift-rate-box" style="display:none;">
-    <span>Курс смены:</span>
-    <input type="number" id="shiftRateInput" step="0.01">
-    <button onclick="saveShiftRate()">Сохранить</button>
-</div>
-
-<button id="createBtn" class="create-btn" onclick="toggleForm()">+ Создать заявку</button>
-
-<div id="createForm" class="form-box">
-    <input type="text" id="phone" placeholder="Номер телефона (необязательно)">
-    <input type="text" id="card" placeholder="Номер карты (необязательно)">
-    <input type="text" id="bank" placeholder="Банк (например, Сбер)" required>
-    <input type="number" id="amount" placeholder="Сумма (₽)" required>
-    <input type="number" id="checks" placeholder="Количество чеков (шт)" required>
-    <input type="number" id="timer" placeholder="Таймер (минут)" required>
-    <input type="text" id="rate" placeholder="Курс" readonly style="opacity:0.7; background: #0d0d15; cursor:not-allowed;">
-    <button onclick="submitPayout()">Опубликовать</button>
-</div>
-
-<div class="tabs" id="tabsContainer">
-  <button id="tabPayouts" class="active" onclick="setTab('payouts')">📋 Заявки</button>
-  <button id="tabClients" onclick="setTab('clients')" style="display:none;">👥 Клиенты</button>
-</div>
-
-<div id="content" class="loading">Загрузка данных...</div>
 
 <script>
 window.onerror = function(msg, url, line) {
