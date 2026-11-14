@@ -46,6 +46,9 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
 .timer { font-size: 13px; color: var(--warning); font-weight: bold; margin-top: 5px;}
 .timer.expired { color: var(--danger); }
 .worker-badge { font-size: 10px; background: var(--info); color: #fff; padding: 2px 6px; border-radius: 4px; margin-left: 5px; }
+.shift-rate-box { display: flex; align-items: center; justify-content: space-between; background: var(--bg-card); padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--warning); }
+.shift-rate-box input { width: 80px; padding: 5px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); color: #fff; text-align: center; font-weight: bold;}
+.shift-rate-box button { padding: 5px 10px; border-radius: 4px; background: var(--warning); color: #fff; border: none; cursor: pointer; font-weight: bold;}
 </style>
 </head>
 <body>
@@ -68,6 +71,13 @@ h1{font-size:16px;margin-bottom:5px;color:var(--accent);display:flex;align-items
         </select>
         <input type="number" id="startShiftRate" placeholder="Введите курс Рапиры" step="0.01" required>
         <button onclick="startShift()">Подтвердить</button>
+    </div>
+
+    <!-- Блок курса (виден только админу/воркеру) -->
+    <div id="shiftRateBox" class="shift-rate-box" style="display:none;">
+        <span>Курс смены:</span>
+        <input type="number" id="shiftRateInput" step="0.01">
+        <button onclick="saveShiftRate()">Сохранить</button>
     </div>
 
     <button id="createBtn" class="create-btn" onclick="toggleForm()">+ Создать заявку</button>
@@ -177,12 +187,21 @@ async function checkShift() {
 
 function updateShiftUI() {
     const shiftBtn = document.getElementById('shiftBtn');
+    const rateBox = document.getElementById('shiftRateBox');
+    
     if (currentShift) {
         shiftBtn.innerText = `Закончить смену (${currentShift.worker_name})`;
         shiftBtn.style.background = 'var(--danger)';
+        if (currentUser.role === 'admin' || currentUser.role === 'worker') {
+            document.getElementById('shiftRateInput').value = currentShift.shift_rate;
+            rateBox.style.display = 'flex';
+        } else {
+            rateBox.style.display = 'none';
+        }
     } else {
         shiftBtn.innerText = 'Начать смену';
         shiftBtn.style.background = 'var(--accent)';
+        rateBox.style.display = 'none';
     }
 }
 
@@ -213,6 +232,17 @@ async function endShift() {
     if (res.ok) { showToast('Смена завершена!'); await checkShift(); }
 }
 
+async function saveShiftRate() {
+    const newRate = document.getElementById('shiftRateInput').value;
+    if (!newRate) return;
+    const res = await fetch(`${API_URL}/api/shift/rate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rate: newRate })
+    });
+    if (res.ok) { showToast('Курс смены обновлен!'); await checkShift(); }
+}
+
 function updateUI() {
     if (!currentUser) return;
     const badge = document.getElementById('userBadge');
@@ -227,6 +257,7 @@ function updateUI() {
         document.getElementById('shiftBtn').style.display = 'block';
     } else {
         info.textContent = `ID: ${currentUser.telegram_id}`;
+        document.getElementById('shiftRateBox').style.display = 'none'; // Скрываем для клиента
     }
 }
 
